@@ -226,9 +226,11 @@ class ClovaInference:
 
         for m in deduped_cleaned:
             if len(final_output[current_diff]) < target_counts[current_diff]:
-                print(m, difficulty_classifier.classify(m))
+                last_word = m.strip().split()[-1]
+                modified_m = f"마니또 미션: ⭐️ {last_word}"
+                
                 if current_diff == difficulty_classifier.classify(m):
-                    final_output[current_diff].append((self.emoji_generator.add_emojis(m), f" (난이도: {current_diff})"))
+                    final_output[current_diff].append((self.emoji_generator.add_emojis(m), modified_m))
         
         if len(final_output[current_diff]) >= target_counts[current_diff]:
             if difficulty_idx < 2:

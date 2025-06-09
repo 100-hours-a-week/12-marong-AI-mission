@@ -15,8 +15,8 @@ from chromadb import HttpClient
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-# from db.db import SessionLocal
-# from db.db_models import Missions
+from db.db import SessionLocal
+from db.db_models import Missions
 import time, torch, re, random, os
 import numpy as np
 import pandas as pd
@@ -53,26 +53,26 @@ model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, local_files_only=True).
 
 clova_llm = ClovaInference(model_path=MODEL_PATH, sbert_model=sbert_model, mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, user_query=None)
 llm_missions = clova_llm.infer()
-print(llm_missions)
+# print(llm_missions)
 
-# db = SessionLocal()
+db = SessionLocal()
 
-# # Missions 객체를 담을 리스트
-# missions_to_add = []
+# Missions 객체를 담을 리스트
+missions_to_add = []
 
-# for key, value_list in llm_missions.items():
-#     for emoji_value, raw_value in value_list:
-#         mission = Missions(
-#             title=raw_value,
-#             description=emoji_value,
-#             difficulty=key
-#         )
-#         missions_to_add.append(mission)
+for key, value_list in llm_missions.items():
+    for emoji_value, summarized_value in value_list:
+        mission = Missions(
+            title=summarized_value,
+            description=emoji_value,
+            difficulty=key
+        )
+        missions_to_add.append(mission)
 
-# # 리스트를 add_all로 한번에 넣기
-# db.add_all(missions_to_add)
-# db.commit()
-# db.close()
+# 리스트를 add_all로 한번에 넣기
+db.add_all(missions_to_add)
+db.commit()
+db.close()
 
-if __name__ == 'main':
+if __name__ == '__main__':
   print('main.py 실행 완료!')

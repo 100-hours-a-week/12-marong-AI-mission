@@ -1,9 +1,11 @@
 from dotenv import load_dotenv
+from pathlib import Path
 import subprocess, os
 
 def run_chroma():
     try:
-        load_dotenv()
+        dotenv_path = Path(__file__).resolve().parent.parent / ".env"
+        load_dotenv(dotenv_path=dotenv_path)
         
         # 환경 변수 로드
         CHROMA_PORT = os.getenv("CHROMA_PORT")
