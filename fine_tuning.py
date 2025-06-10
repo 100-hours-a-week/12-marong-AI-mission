@@ -22,7 +22,7 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 
 # JSONL 파일 로드 및 변환
-json_path = "./manitto_mission_5.jsonl"
+json_path = "./manitto_mission_fin.jsonl"
 df = pd.read_json(json_path, lines=True)
 df["text"] = df["prompt"] + "\n" + df["completion"]
 dataset = Dataset.from_pandas(df[["text"]])
