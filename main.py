@@ -51,7 +51,7 @@ hated_mission_collection = chroma_client.get_or_create_collection(
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # base 모델 이름 (huggingface hub or local)
-base_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
+base_model_name = "models/hyperclovax-1.5b-instruct"
 
 # adapter가 저장된 로컬 경로 (.env에서 가져오기)
 MODEL_PATH = os.getenv("MODEL_PATH")  # ex: "./lora_adapter"
