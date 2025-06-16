@@ -240,3 +240,28 @@ class ClovaInference:
         print()
       
     return final_output
+
+#   def debug_chroma(self, difficulty="하", query="마니띠에게 깜짝 선물 주기", k=5):
+#     print("🔍 [Chroma 디버깅 시작]")
+#     try:
+#         query_emb = self.sbert_model.encode(query, convert_to_numpy=True).tolist()
+#         results = self.mission_collection.query(
+#             query_embeddings=[query_emb],
+#             n_results=k,
+#             where={"난이도": {"$in": [difficulty]}}
+#         )
+#         print(" 검색된 문서:")
+#         if results and results.get('documents') and results['documents'][0]:
+#             for doc in results['documents'][0]:
+#                 print(f"  - {doc}")
+#         else:
+#             print("  -  문서 없음")
+
+#         print("\n 메타데이터:")
+#         print(results.get('metadatas', [[]])[0])
+
+#         print("\n 거리:")
+#         print(results.get('distances', [[]])[0])
+        
+#     except Exception as e:
+#         print(" 디버깅 중 오류 발생:", e)

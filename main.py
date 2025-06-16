@@ -66,6 +66,8 @@ model = model.to(device)
 
 clova_llm = ClovaInference(model=model, tokenizer=tokenizer, sbert_model=sbert_model, mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, user_query=None)
 llm_missions = clova_llm.infer()
+
+# clova_llm.debug_chroma(difficulty="하", query="마니띠에게 몰래 간식 주기", k=5)
 # print(llm_missions)
 
 db = SessionLocal()
