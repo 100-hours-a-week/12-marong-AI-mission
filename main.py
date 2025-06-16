@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from db.db import SessionLocal
 from db.db_models import Missions
+from peft import PeftModel
 import time, torch, re, random, os
 import numpy as np
 import pandas as pd
@@ -46,12 +47,24 @@ hated_mission_collection = chroma_client.get_or_create_collection(
     name="hated_mission_collection"
 )
 
-# LLM 파이프라인 (HyperCLOVA-X)
-MODEL_PATH = os.getenv("MODEL_PATH")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
-model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, local_files_only=True).to(device)
+# 디바이스 설정
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-clova_llm = ClovaInference(model_path=MODEL_PATH, sbert_model=sbert_model, mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, user_query=None)
+# base 모델 이름 (huggingface hub or local)
+base_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
+
+# adapter가 저장된 로컬 경로 (.env에서 가져오기)
+MODEL_PATH = os.getenv("MODEL_PATH")  # ex: "./lora_adapter"
+
+# base model과 tokenizer 불러오기
+tokenizer = AutoTokenizer.from_pretrained(base_model_name, local_files_only=True)
+base_model = AutoModelForCausalLM.from_pretrained(base_model_name, local_files_only=True)
+
+# LoRA adapter 적용
+model = PeftModel.from_pretrained(base_model, MODEL_PATH)
+model = model.to(device)
+
+clova_llm = ClovaInference(model=model, tokenizer=tokenizer, sbert_model=sbert_model, mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, user_query=None)
 llm_missions = clova_llm.infer()
 # print(llm_missions)
 

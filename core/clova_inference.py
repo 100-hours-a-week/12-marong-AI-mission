@@ -15,10 +15,10 @@ import numpy as np
 import pandas as pd
 
 class ClovaInference:
-  def __init__(self, model_path, sbert_model, mission_collection, hated_mission_collection, user_query=None):
+  def __init__(self, model, tokenizer, sbert_model, mission_collection, hated_mission_collection, user_query=None):
     self.device = "cuda" if torch.cuda.is_available() else "cpu"
-    self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-    self.model = AutoModelForCausalLM.from_pretrained(model_path, local_files_only=True).to(self.device)
+    self.tokenizer = tokenizer
+    self.model = model
     self.sbert_model = sbert_model
     self.difficulty_list = [["상"], ["중"], ["하"]]
     self.mission_collection = mission_collection
