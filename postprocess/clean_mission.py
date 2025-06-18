@@ -1,9 +1,7 @@
 from sklearn.metrics.pairwise import cosine_similarity
 from postprocess.config import BLOCKED_KEYWORDS, BLOCKED_PHRASES, BLOCKED_SUFFIXES, FOOD_PATTERNS
 import numpy as np
-import re, os
-from dotenv import load_dotenv
-load_dotenv()
+import re
 
 class CleanMission:
   def __init__(self):    
