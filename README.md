@@ -2,7 +2,7 @@
 
 **마롱(Marong)**은 마니또 기반 SNS 서비스이며, 이 저장소는 마니또 게임에 사용되는 **AI 기반 미션 생성기**를 구현한 프로젝트입니다.
 
-## ![마롱 로고](./마롱.jpeg)
+![마롱](https://github.com/user-attachments/assets/eaf515d0-b8c8-4522-a22a-77e18d729853)
 
 ## 주요 기능
 
