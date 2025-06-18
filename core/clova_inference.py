@@ -1,21 +1,18 @@
 # GPU-Only
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import pipeline
 from langchain_huggingface import HuggingFacePipeline
 from langchain import PromptTemplate
-from langchain_core.runnables import RunnableSequence
 from postprocess.clean_mission import CleanMission
 from postprocess.emoji_gen import EmojiGen
-from model.sbert_wrapper import SBERTWrapper
 from postprocess.difficulty_classify import DiffiClassify
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
-from postprocess.config import BLOCKED_KEYWORDS, RANDOM_QUERIES
+from postprocess.config import RANDOM_QUERIES
 import torch, re, random
 import numpy as np
-import pandas as pd
 
 class ClovaInference:
-  def __init__(self, model, tokenizer, sbert_model, mission_collection, hated_mission_collection, user_query=None):
+  def __init__(self, model, contents, tokenizer, sbert_model, mission_collection, hated_mission_collection, user_query=None):
     self.device = "cuda" if torch.cuda.is_available() else "cpu"
     self.tokenizer = tokenizer
     self.model = model
@@ -26,6 +23,7 @@ class ClovaInference:
     self.clean_tool = CleanMission()
     self.emoji_generator = EmojiGen()
     self.difficulty_classifier = DiffiClassify()
+    self.contents = contents
 
     self.pipe = pipeline(
         "text-generation",
@@ -41,11 +39,8 @@ class ClovaInference:
     )
     self.llm = HuggingFacePipeline(pipeline=self.pipe)
     self.user_query = user_query
-    
-    if self.user_query:
-      pass
-    else:
-      self.queries = RANDOM_QUERIES
+    self.random_queries = RANDOM_QUERIES
+      
     # 프롬프트 작성
     self.template = """
     아래는 기존의 마니또 미션 예시야:
@@ -60,7 +55,7 @@ class ClovaInference:
     - 위 예시를 참고해서 마니띠에게 쪽지를 보내거나, 피드를 보내거나 몰래 도와주는 것과 같이 비밀스럽게 그 사람을 위해 미션을 수행하는 내용이어야 해.
     - 위 예시에서 컴퓨터 개발, 프로그래밍, 깃허브, 노션 등 IT와 관련된 내용이 있으면 반드시 해당 내용도 포함해줘.
     - 마니띠의 집이나 방에서 수행하는 미션은 절대 포함하지 마.
-    - 출력은 번호를 붙인 3개의 문장만 작성해. 다른 내용은 절대 포함하지 마.
+    - 출력은 번호를 붙인 4개의 문장만 작성해. 다른 내용은 절대 포함하지 마.
     - 예시: 미션 1: 마니띠의 디스코드 메시지에 귀여운 이모지 달기
 
     미션:
@@ -68,103 +63,63 @@ class ClovaInference:
     self.prompt = PromptTemplate.from_template(self.template)
     self.llm_chain = self.prompt | self.llm
 
-  def infer(self, target_counts={'상': 8, '중': 16, '하': 24}, difficulty=2, k=12):
-    # user_query가 별도로 있는 경우
+  def infer(self, target_counts={'상': 0, '중': 3, '하': 0}, k=4):
     difficulty_classifier = DiffiClassify()
+      
+    def get_average_post_embedding(contents: list[str], model):
+        if not contents:
+            return []
+            
+        model = model        
+        embeddings = model.encode(contents, convert_to_numpy=True)
+        return np.mean(embeddings, axis=0)
+
+    high_embedding = None if not self.contents[0] else get_average_post_embedding(self.contents[0], self.sbert_model)
+    middle_embedding = None if not self.contents[1] else get_average_post_embedding(self.contents[1], self.sbert_model)
+    low_embedding = None if not self.contents[2] else get_average_post_embedding(self.contents[2], self.sbert_model)
+    embedding_vectors = [high_embedding, middle_embedding, low_embedding]
+    print(embedding_vectors, "임베딩 벡터 생성 테스트 완료!")
+      
+    # 미션 생성 루프
+    max_attempts = 200
+    attempt = 0
+    final_output = {'상': [], '중': [], '하': []}
     
-    if self.user_query:
-      max_attempts = 100
-      attempt = 0
-      final_output = []
+    difficulty_idx = 0
+    difficulty_order = ["상", "중", "하"]
+    Flag = False
 
-      while not final_output and attempt < max_attempts:
-        attempt += 1
-
-        query_emb = self.sbert_model.encode(self.user_query, convert_to_numpy=True).tolist()
-
-        results = self.mission_collection.query(
-        query_embeddings=[query_emb],
-        n_results=k,
-        where={"난이도": {"$in": self.difficulty_list[difficulty]}}
-        )
-        
-        rag_context_list = [f"- {doc}" for doc in results['documents'][0]] if results and results['documents'] else ["- (예시 없음)"]
-        rag_context = "\n".join(rag_context_list)
-
-        response_raw = self.llm_chain.invoke({"rag_context": rag_context, "query": query})
-
-        # 후처리
-        if "미션:" in response_raw:
-            after_mission = response_raw.split("미션:")[-1].strip()
-        else:
-            after_mission = response_raw.strip()
-
-        matches = re.findall(r'(?:미션\s*\d+:|^\d+:)\s*([^\n]*?기)', after_mission, re.MULTILINE)
-
-        cleaned_output = []
-        
-        for m in dict.fromkeys([m.strip() for m in matches]):
-            if self.clean_tool.is_valid_mission(m) and not self.clean_tool.is_in_hated_collection(m, self.hated_mission_collection, 200):
-                cleaned_output.append(m)
-
-        print("rag_context 예시:", rag_context_list)
-        print()
-
-        # 후처리한 미션 + RAG 검색 결과 활용
-        cleaned_output = cleaned_output + random.sample(rag_context_list, 3)
-        if cleaned_output:
-            # SBERT 임베딩 + DBSCAN 중복 제거
-            embeddings = self.sbert_model.encode(cleaned_output)
-            clustering = DBSCAN(eps=0.2, min_samples=1, metric="cosine", n_jobs=-1).fit(embeddings)
-
-            clusters = {}
-            for idx, label in enumerate(clustering.labels_):
-                if label not in clusters:
-                    clusters[label] = cleaned_output[idx]
-
-            cleaned_output = list(clusters.values())
-          
-        deduped_cleaned = []
-        for m in cleaned_output:
-            # "-" 접두사 제거
-            if m.startswith("- "):
-                m = m[2:].strip()
-
-            m_emb = self.sbert_model.encode(m, convert_to_numpy=True)
-            if final_output:
-                final_embs = self.sbert_model.encode(final_output, convert_to_numpy=True)
-                sims = cosine_similarity([m_emb], final_embs)[0]
-                if np.max(sims) < 0.8:  # 유사도 임계값 (조정 가능)
-                    deduped_cleaned.append(m)
-            else:
-                deduped_cleaned.append(m.strip())
-
-        final_output.extend(
-        [f"{self.emoji_generator.add_emojis(m)} (난이도: {self.difficulty_classifier.classify(m)})"
-        for m in deduped_cleaned[:5]
-        if self.difficulty_classifier.classify(m) != "상"])
-        print("필터링 후 미션:", deduped_cleaned[:5])
-      
-    # user_query가 별도로 없는 경우, 임의 쿼리에서 루프
-    else:        
-      # 미션 생성 루프
-      max_attempts = 200
-      attempt = 0
-      final_output = {'상': [], '중': [], '하': []}
-      
-      difficulty_idx = 0
-      difficulty_order = ["상", "중", "하"]
-
-      while (any(len(final_output[level]) < target_counts[level] for level in target_counts)) and attempt < max_attempts:
+    while (any(len(final_output[level]) < target_counts[level] for level in target_counts)) and attempt < max_attempts:
         attempt += 1
         current_diff = difficulty_order[difficulty_idx]
         
+        if len(final_output[current_diff]) >= target_counts[current_diff]:
+            if difficulty_idx < 2:
+                difficulty_idx += 1
+            continue
+        
+        if attempt % 2 == 0 and embedding_vectors[difficulty_idx] is not None:
+            query_emb = embedding_vectors[difficulty_idx]
+            query = "위 예시만 참고해줘."
+            print("피드 좋아요 수 기반 미션 선택!")
+        else:
+            if not self.user_query:
+                query = random.choice(self.random_queries)
+                print(f" 랜덤 선택된 쿼리: {query}")
+            # user_query가 별도로 있는 경우
+            elif self.user_query and not Flag:
+                query = self.user_query
+                Flag = True
+            elif self.user_query and Flag:
+                query = random.choice([self.user_query] + self.random_queries[:4])
+            else:
+                query = random.choice(self.random_queries)
+                print(f" 랜덤 선택된 쿼리: {query}")
+                
+            query_emb = self.sbert_model.encode(query, convert_to_numpy=True).tolist()
+            
         print(f"\n 시도 {attempt}번째... (현재 난이도: {current_diff})")
-
-        query = random.choice(self.queries)
-        print(f" 랜덤 선택된 쿼리: {query}")
-
-        query_emb = self.sbert_model.encode(query, convert_to_numpy=True).tolist()
+        
         results = self.mission_collection.query(
         query_embeddings=[query_emb],
         n_results=k,
@@ -173,6 +128,7 @@ class ClovaInference:
         
         rag_context_list = [f"- {doc}" for doc in results['documents'][0]] if results and results['documents'] else ["- (예시 없음)"]
         rag_context = "\n".join(rag_context_list)
+        print(rag_context)
 
         response_raw = self.llm_chain.invoke({"rag_context": rag_context, "query": query})
 
@@ -186,13 +142,13 @@ class ClovaInference:
 
         cleaned_output = []
         for m in dict.fromkeys([m.strip() for m in matches]):
-          if self.clean_tool.is_valid_mission(m) and not self.clean_tool.is_in_hated_collection(self.sbert_model, m, self.hated_mission_collection, 200):
-              cleaned_output.append(m)
+            if self.clean_tool.is_valid_mission(m) and not self.clean_tool.is_in_hated_collection(self.sbert_model, m, self.hated_mission_collection, 200):
+                cleaned_output.append(m)
 
         print(" rag_context 예시:", rag_context_list)
         print()
         
-        sample_size = min(6, len(rag_context_list))
+        sample_size = min(4, len(rag_context_list))
         cleaned_output = cleaned_output + random.sample(rag_context_list, sample_size)
 
         if cleaned_output:
@@ -215,7 +171,7 @@ class ClovaInference:
 
             m_emb = self.sbert_model.encode(m, convert_to_numpy=True)
             flat_final_output = [m for sublist in final_output.values() for m in sublist]
-    
+
             if flat_final_output:
                 final_embs = self.sbert_model.encode(flat_final_output, convert_to_numpy=True)
                 sims = cosine_similarity([m_emb], final_embs)[0]
@@ -238,30 +194,5 @@ class ClovaInference:
 
         print(final_output)
         print()
-      
+
     return final_output
-
-#   def debug_chroma(self, difficulty="하", query="마니띠에게 깜짝 선물 주기", k=5):
-#     print("🔍 [Chroma 디버깅 시작]")
-#     try:
-#         query_emb = self.sbert_model.encode(query, convert_to_numpy=True).tolist()
-#         results = self.mission_collection.query(
-#             query_embeddings=[query_emb],
-#             n_results=k,
-#             where={"난이도": {"$in": [difficulty]}}
-#         )
-#         print(" 검색된 문서:")
-#         if results and results.get('documents') and results['documents'][0]:
-#             for doc in results['documents'][0]:
-#                 print(f"  - {doc}")
-#         else:
-#             print("  -  문서 없음")
-
-#         print("\n 메타데이터:")
-#         print(results.get('metadatas', [[]])[0])
-
-#         print("\n 거리:")
-#         print(results.get('distances', [[]])[0])
-        
-#     except Exception as e:
-#         print(" 디버깅 중 오류 발생:", e)
