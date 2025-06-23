@@ -7,6 +7,8 @@
 ## 주요 기능
 
 - **LangChain + HuggingFace** 기반 마니또 미션 자동 생성
+- **그룹별 좋아요 피드가 많은** 컨텐츠 내용 반영하여 미션 생성
+- **그룹별 설명 텍스트를 LLM 프롬프트에 반영**하여 미션 생성
 - **SBERT 임베딩** + **ChromaDB RAG 검색** 기반 유사 예시 제공
 - **미션 필터링**, **중복 제거**, **이모지 부착**, **난이도 분류** 등 다양한 후처리 포함
 - **GPU 기반 최적화**된 파이프라인
@@ -16,7 +18,8 @@
 ## 아키텍처 개요
 
 ```
-[사용자 쿼리 or 랜덤 쿼리 or 피드(좋아요 수 많은 컨텐츠)]
+[사용자 쿼리 or 랜덤 쿼리 or 피드 기반 콘텐츠]
+        + 그룹별 설명 텍스트 (LLM 프롬프트 포함)
          ↓
     유사 예시 검색 (ChromaDB)
          ↓
@@ -80,27 +83,41 @@ print(output)
 
 ```
 12-marong-AI-mission/
-├── clova_inference.py
+├── main.py                      # 메인 실행 파일
+│
+├── core/
+│   └── clova_inference.py       # 미션 생성 핵심 파이프라인
+│
+├── db/
+│   ├── db.py                    # Backend DB 연결
+│   └── db_models.py             # DB 모델 정의
+│
 ├── postprocess/
-│   ├── clean_mission.py         # 미션 유효성 필터
-│   ├── emoji_gen.py             # 이모지 추가 도구
+│   ├── clean_mission.py         # 미션 유효성 필터링
+│   ├── config.py                # 랜덤 쿼리 등 설정값
 │   ├── difficulty_classify.py   # 난이도 판별기
-│   └── config.py                # 랜덤 쿼리 등 설정값
+│   └── emoji_gen.py             # 이모지 추가 도구
+│
+├── scripts/
+│   ├── run_chroma.py            # ChromaDB 서버 실행 스크립트
+│   └── sbert_down.py            # SBERT 모델 다운로드 스크립트
+│
 └── README.md
+
 ```
 
 ---
 
 ## 핵심 모듈 설명
 
-| 모듈                              | 설명                       |
-| --------------------------------- | -------------------------- |
-| `ClovaInference`                  | 미션 생성 전체 파이프라인  |
-| `CleanMission`                    | 부적절한 미션 내용 필터링  |
-| `EmojiGen`                        | 랜덤 이모지 부착기         |
-| `DiffiClassify`                   | SBERT 기반 난이도 분류     |
-| `DBSCAN`                          | 유사도 기반 중복 미션 제거 |
-| `LangChain + HuggingFacePipeline` | 자연어 미션 생성기         |
+| 파일 경로                            | 모듈명/구성                       | 역할 설명                                   |
+| ------------------------------------ | --------------------------------- | ------------------------------------------- |
+| `core/clova_inference.py`            | `ClovaInference`                  | 미션 생성 전체 파이프라인 관리              |
+| `postprocess/clean_mission.py`       | `CleanMission`                    | 부적절하거나 비자연스러운 미션 필터링       |
+| `postprocess/emoji_gen.py`           | `EmojiGen`                        | 미션 문장에 랜덤 이모지 부착                |
+| `postprocess/difficulty_classify.py` | `DiffiClassify`                   | SBERT 기반 난이도 분류기                    |
+| _(내부 모듈)_                        | `DBSCAN`                          | SBERT 임베딩 유사도 기반 중복 미션 제거     |
+| _(통합 구성)_                        | `LangChain + HuggingFacePipeline` | 자연어 기반 미션 생성 엔진 (LLM 파이프라인) |
 
 ---
 
@@ -131,7 +148,6 @@ print(output)
 ## 향후 확장 방향
 
 - 미션 피드백 기반 난이도/테마 자동 조정
-- 그룹 설명 텍스트 기반 미션 생성
 - 미션 성공 여부 데이터와 사용자 성향 분석 연동
 
 ---
