@@ -12,7 +12,7 @@ import torch, re, random
 import numpy as np
 
 class ClovaInference:
-  def __init__(self, model, contents, tokenizer, sbert_model, mission_collection, hated_mission_collection, user_query=None):
+  def __init__(self, model, contents, tokenizer, sbert_model, mission_collection, hated_mission_collection, group_description, user_query=None):
     self.device = "cuda" if torch.cuda.is_available() else "cpu"
     self.tokenizer = tokenizer
     self.model = model
@@ -24,6 +24,7 @@ class ClovaInference:
     self.emoji_generator = EmojiGen()
     self.difficulty_classifier = DiffiClassify()
     self.contents = contents
+    self.group_description = group_description
 
     self.pipe = pipeline(
         "text-generation",
@@ -46,7 +47,7 @@ class ClovaInference:
     아래는 기존의 마니또 미션 예시야:
     {rag_context}
 
-    위 예시와 '{query}'에 어울리는 쉬운 난이도의 마니또 미션 5개를 작성해줘.
+    위 예시와 사용자 질문 '{query}', 그리고 마니또 게임 수행 그룹의 설명 '{group_description}'에 어울리는 쉬운 난이도의 마니또 미션 5개를 작성해줘.
 
     조건:
     - 각 미션은 '미션 1:', '미션 2:', '미션 3:', '미션 4:', '미션 5:' 으로 시작해.
@@ -60,10 +61,11 @@ class ClovaInference:
 
     미션:
     """
+    
     self.prompt = PromptTemplate.from_template(self.template)
     self.llm_chain = self.prompt | self.llm
 
-  def infer(self, target_counts={'상': 0, '중': 3, '하': 0}, k=4):
+  def infer(self, target_counts={'상': 4, '중': 12, '하': 20}, k=5):
     difficulty_classifier = DiffiClassify()
       
     def get_average_post_embedding(contents: list[str], model):
@@ -78,7 +80,6 @@ class ClovaInference:
     middle_embedding = None if not self.contents[1] else get_average_post_embedding(self.contents[1], self.sbert_model)
     low_embedding = None if not self.contents[2] else get_average_post_embedding(self.contents[2], self.sbert_model)
     embedding_vectors = [high_embedding, middle_embedding, low_embedding]
-    print(embedding_vectors, "임베딩 벡터 생성 테스트 완료!")
       
     # 미션 생성 루프
     max_attempts = 200
@@ -100,7 +101,7 @@ class ClovaInference:
         
         if attempt % 2 == 0 and embedding_vectors[difficulty_idx] is not None:
             query_emb = embedding_vectors[difficulty_idx]
-            query = "위 예시만 참고해줘."
+            query = "별도 없음."
             print("피드 좋아요 수 기반 미션 선택!")
         else:
             if not self.user_query:
@@ -111,7 +112,7 @@ class ClovaInference:
                 query = self.user_query
                 Flag = True
             elif self.user_query and Flag:
-                query = random.choice([self.user_query] + self.random_queries[:4])
+                query = random.choice([self.user_query] + random.sample(self.random_queries, 5))
             else:
                 query = random.choice(self.random_queries)
                 print(f" 랜덤 선택된 쿼리: {query}")
@@ -130,7 +131,7 @@ class ClovaInference:
         rag_context = "\n".join(rag_context_list)
         print(rag_context)
 
-        response_raw = self.llm_chain.invoke({"rag_context": rag_context, "query": query})
+        response_raw = self.llm_chain.invoke({"rag_context": rag_context, "query": query, "group_description": self.group_description})
 
         # 후처리
         if "미션:" in response_raw:
