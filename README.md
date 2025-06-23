@@ -55,7 +55,7 @@ python main.py
 ## 사용 예시
 
 ```bash
-python run_chroma.py
+python scripts/run_chroma.py
 python main.py
 ```
 
