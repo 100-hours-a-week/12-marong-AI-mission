@@ -54,27 +54,9 @@ python main.py
 
 ## 사용 예시
 
-```python
-from clova_inference import ClovaInference
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from sentence_transformers import SentenceTransformer
-
-model = AutoModelForCausalLM.from_pretrained("your-llm")
-tokenizer = AutoTokenizer.from_pretrained("your-llm")
-sbert_model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
-
-clova = ClovaInference(
-    model=model,
-    tokenizer=tokenizer,
-    sbert_model=sbert_model,
-    contents=[[], user_posts, []],  # 난이도별 사용자 피드
-    mission_collection=mission_chroma_collection,
-    hated_mission_collection=hated_mission_collection,
-    user_query="마니띠에게 몰래 선물 주는 미션 추천해줘"
-)
-
-output = clova.infer(target_counts={'상': 0, '중': 3, '하': 0})
-print(output)
+```bash
+python run_chroma.py
+python main.py
 ```
 
 ---
