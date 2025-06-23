@@ -6,9 +6,9 @@ from model.sbert_wrapper import SBERTWrapper
 from chromadb import HttpClient
 from dotenv import load_dotenv
 from db.db import SessionLocal
-from db.db_models import Missions
+from db.db_models import Missions, GroupMissions
 from peft import PeftModel
-from main_tool import get_top_posts
+from main_tool import get_top_posts, get_group_info, largest_mission_id
 import torch, os
 
 # sbert_wrapper 생성
@@ -51,30 +51,52 @@ model = PeftModel.from_pretrained(base_model, MODEL_PATH)
 model = model.to(device)
 
 db = SessionLocal()
-contents_high = get_top_posts(db, "상", 2)
-contents_middle = get_top_posts(db, "중", 3)
-contents_low = get_top_posts(db, "하", 3)
 
-contents = [contents_high, contents_middle, contents_low]
-print(contents, "피드 데이터 DB 추출 테스트 완료!")
+# 그룹 ID와 설명 조회
+group_info = get_group_info(db)
+m_id = largest_mission_id(db) + 1
 
-clova_llm = ClovaInference(model=model, contents=contents, tokenizer=tokenizer, sbert_model=sbert_model, mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, user_query=None)
-llm_missions = clova_llm.infer()
+for g_id, g_desc in group_info.items():
+    # 상, 중, 하 별로 피드 가장 많은 포스트 조회
+    contents_high = get_top_posts(db, "상", g_id, 3)
+    contents_middle = get_top_posts(db, "중", g_id, 3)
+    contents_low = get_top_posts(db, "하", g_id, 3)
+    
+    contents = [contents_high, contents_middle, contents_low]
+    print(contents, "피드 데이터 DB 추출 테스트 완료!")
+    
+    clova_llm = ClovaInference(model=model, contents=contents, tokenizer=tokenizer, sbert_model=sbert_model, 
+                               mission_collection=mission_collection, hated_mission_collection=hated_mission_collection, group_description=g_desc, user_query=None)
+    llm_missions = clova_llm.infer()
+    # Missions 객체를 담을 리스트
+    missions_to_add = []
+    group_missions_to_add = []
 
-# Missions 객체를 담을 리스트
-missions_to_add = []
+    for key, value_list in llm_missions.items():
+        for emoji_value, summarized_value in value_list:
+            mission = Missions(
+                id=m_id,
+                title=summarized_value,
+                description=emoji_value,
+                difficulty=key
+            )
+            
+            group_mission = GroupMissions(
+                group_id=g_id,
+                mission_id=m_id,
+                max_assignable=5,
+                remaining_count=5
+            )
+            
+            missions_to_add.append(mission)
+            group_missions_to_add.append(group_mission)
+            m_id += 1
 
-for key, value_list in llm_missions.items():
-    for emoji_value, summarized_value in value_list:
-        mission = Missions(
-            title=summarized_value,
-            description=emoji_value,
-            difficulty=key
-        )
-        missions_to_add.append(mission)
+        # 안정적 운영 위해 리스트를 그룹별로 add_all로 한번에 넣기
+        db.add_all(missions_to_add)
+        db.add_all(group_missions_to_add)
+        print(f"{g_id}, {g_desc} 설명에 대한 미션 생성 완료!")
 
-# 리스트를 add_all로 한번에 넣기
-db.add_all(missions_to_add)
 db.commit()
 db.close()
 

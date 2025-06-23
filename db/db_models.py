@@ -14,7 +14,8 @@ class Missions(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text)
     difficulty = Column(String(10), nullable=False)
-
+    
+    group_missions = relationship("GroupMissions", back_populates='mission')
 
 # Users
 class Users(Base):
@@ -55,6 +56,7 @@ class Groups(Base):
 
     posts = relationship("Posts", back_populates="group", cascade="all, delete-orphan")
     user_groups = relationship("UserGroups", back_populates="group", cascade="all, delete-orphan")
+    group_missions = relationship("GroupMissions", back_populates='group')
 
 
 # Posts
@@ -87,6 +89,22 @@ class PostLikes(Base):
     post = relationship("Posts", back_populates='likes')
     user = relationship("Users", back_populates='post_likes')
 
+# GroupMissions
+class GroupMissions(Base):
+    __tablename__ = "GroupMissions"
+
+    id = Column(BigInteger, nullable=False, autoincrement=True, primary_key=True)
+    group_id = Column(BigInteger, ForeignKey('Groups.id'), nullable=False)
+    mission_id = Column(BigInteger, ForeignKey('Missions.id'))
+    max_assignable = Column(Integer, default=0)
+    remaining_count = Column(Integer, default=0)
+
+    group = relationship("Groups", back_populates='group_missions')
+    mission = relationship("Missions", back_populates='group_missions')
+    
+    __table_args__ = (
+        UniqueConstraint('group_id', 'mission_id', name='uq_user_mission'),
+    )
 
 # UserGroups
 class UserGroups(Base):
