@@ -39,9 +39,12 @@ LLM 텍스트 생성 (LangChain + HuggingFace)
 ```bash
 git clone https://github.com/100-hours-a-week/12-marong-AI-mission.git
 # 초기 설정
+pip install -r requirements.txt
+
 python clova_down.py
+python scripts/sbert_down.py
 pip install "chromadb[server]"
-# 필요시 실행
+# 필요시 설치
 pip install langchain_huggingface
 pip install pymysql
 ps aux | grep chroma
