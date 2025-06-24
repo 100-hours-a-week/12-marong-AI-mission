@@ -53,10 +53,11 @@ db = SessionLocal()
 
 # 그룹 ID와 설명 조회
 group_info = get_group_info(db)
-m_id = largest_mission_id(db) + 1
 
 for g_id, g_desc in group_info.items():
     try:
+        m_id = largest_mission_id(db) + 1
+        
         # 상, 중, 하 별로 피드 가장 많은 포스트 조회
         contents_high = get_top_posts(db, "상", g_id, 3)
         contents_middle = get_top_posts(db, "중", g_id, 3)
