@@ -67,6 +67,7 @@ python main.py
 ```
 12-marong-AI-mission/
 ├── main.py                      # 메인 실행 파일
+├── main_tool.py                 # Backend DB 기반 미션 생성 정보 조회 도구
 │
 ├── core/
 │   └── clova_inference.py       # 미션 생성 핵심 파이프라인
