@@ -96,6 +96,7 @@ class GroupMissions(Base):
     id = Column(BigInteger, nullable=False, autoincrement=True, primary_key=True)
     group_id = Column(BigInteger, ForeignKey('Groups.id'), nullable=False)
     mission_id = Column(BigInteger, ForeignKey('Missions.id'))
+    week = Column(Integer, nullable=False)
     max_assignable = Column(Integer, default=0)
     remaining_count = Column(Integer, default=0)
 
@@ -103,6 +104,7 @@ class GroupMissions(Base):
     mission = relationship("Missions", back_populates='group_missions')
     
     __table_args__ = (
+        Index("idx_group_week", "group_id", "week"),
         UniqueConstraint('group_id', 'mission_id', name='uq_user_mission'),
     )
 
