@@ -1,1 +1,12 @@
 scripts/.env
+.env
+v1/.env
+v1/__pycache__
+v1/core/__pycache__
+v1/db/__pycache__
+v1/model/__pycache__
+v1/models
+v1/postprocess/__pycache__
+v1/postprocess/config.py
+v1/tool/__pycache__
+v1/chroma.log

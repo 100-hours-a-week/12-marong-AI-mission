@@ -8,7 +8,13 @@ from db.db import SessionLocal
 from db.db_models import Missions, GroupMissions
 from peft import PeftModel
 from main_tool import get_top_posts, get_group_info, largest_mission_id
+from tool.get_week_index import GetWeekIndex
+from datetime import datetime
 import torch, os
+
+base_date = datetime(2025, 1, 6)
+today = datetime.today()
+week_index = GetWeekIndex(today, base_date).get()
 
 # sbert_wrapper 생성
 sbert_model = SentenceTransformer('./kr-sbert', device='cpu')
@@ -85,6 +91,7 @@ for g_id, g_desc in group_info.items():
                 group_mission = GroupMissions(
                     group_id=g_id,
                     mission_id=m_id,
+                    week=week_index,
                     max_assignable=5,
                     remaining_count=5
                 )
