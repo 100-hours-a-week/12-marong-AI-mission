@@ -26,6 +26,8 @@ class CleanMission:
         return False
     if re.search(r"마니띠가\s*좋아하는\s*\S+\s*추천하기", mission):
         return False
+    if re.search(r"마니띠가\s*좋아하는\s*(\S+?인)", mission):
+        return False
     if re.search(r"마니띠\s*\S+\s*불러주기", mission):
         return False
     if re.search(r"나의 음악 취향을\s*\S+\s*칭찬해주기", mission):
