@@ -63,6 +63,8 @@ class CleanMission:
     if any(count >= 3 for count in verb_counts.values()):
         return False
   
+    return True
+  
   def is_in_hated_collection(self, sbert_model, mission, hated_mission_collection, SIM_THRESHOLD):
     try:
         # 임베딩 직접 생성
