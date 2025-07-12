@@ -101,13 +101,21 @@ def create_eval_llm_chain(model, tokenizer, device):
     # LangChain LLMChain: prompt | llm 구조
     eval_llm_chain = prompt | eval_llm
     return eval_llm_chain
-  
-def parse_eval_output(output: str) -> dict:
-    score_match = re.search(r"(\d),\s*(\d),\s*(\d),\s*(\d)", output)
-    if not score_match:
-        return {"error": "점수 파싱 실패", "raw_output": output}
 
-    score1, score2, score3, score4 = map(int, score_match.groups())
+def parse_eval_output(raw_output: str) -> dict:
+    # 1. 점수 패턴 찾기 (쉼표로 구분된 4개의 숫자)
+    score_matches = list(re.finditer(r"\b([1-5])\s*,\s*([1-5])\s*,\s*([1-5])\s*,\s*([1-5])\b", raw_output))
+    
+    if len(score_matches) < 2:
+        return {
+            "error": "2개 이상의 점수를 찾을 수 없음",
+            "raw_output": raw_output
+        }
+    
+    # 2. 두 번째 점수 기준으로 추출
+    match = score_matches[1]
+    score1, score2, score3, score4 = map(int, match.groups())
+    reason_text = raw_output[match.end():].strip()
 
     return {
         "일관성": score1,
@@ -115,7 +123,7 @@ def parse_eval_output(output: str) -> dict:
         "창의성": score3,
         "수행가능성": score4,
         "총합": score1 + score2 + score3 + score4,
-        "이유": output.strip()
+        "이유": reason_text
     }
 
 def select_query_node(state: dict) -> dict:
@@ -268,7 +276,10 @@ def eval_node(state):
             "mission": mission
         }
         raw_output = eval_llm_chain.invoke(input_dict)
+        print("raw_output", raw_output)
+
         parsed_result = parse_eval_output(raw_output)
+        print("parsed_result", parsed_result)
         
         # 평가 결과 출력
         print(f"Mission '{mission}' 평가 점수: {parsed_result.get('총합')}")

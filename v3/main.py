@@ -124,13 +124,13 @@ for g_id, g_desc in group_info.items():
 
         result = mission_graph.invoke(initial_state, config={"recursion_limit": 200})
         final_output = result["final_output"]
-        print(f"[성공] final_output: {final_output}")
 
         missions_to_add = []
         group_missions_to_add = []
 
         for level, missions in final_output.items():
-            for emoji_mission, summary_mission in missions[:2]: # 나머지 점수 지표는 추후 필요시 사용
+            for mission in missions:
+                emoji_mission, summary_mission = mission[0], mission[1] # 나머지 점수 지표는 추후 필요시 사용
                 mission = Missions(
                     id=m_id,
                     title=summary_mission,
