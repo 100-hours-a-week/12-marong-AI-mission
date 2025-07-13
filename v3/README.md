@@ -1,16 +1,20 @@
 # Marong AI 미션 (Marong AI Mission)
 
-**마롱(Marong)**은 마니또 기반 SNS 서비스이며, 이 저장소는 마니또 게임에 사용되는 **AI 기반 미션 생성기**를 구현한 프로젝트입니다.
+마롱(Marong)은 마니또 기반 SNS 서비스이며, 이 저장소는 마니또 게임에 사용되는 **AI 기반 미션 생성기**를 구현한 프로젝트입니다.
 
-![마롱](https://github.com/user-attachments/assets/eaf515d0-b8c8-4522-a22a-77e18d729853)
+![마롱](https://github.com/user-attachments/assets/eaf515d0-b8c8-4522-a22a-77e18d729853)
+
+---
 
 ## 주요 기능
 
 - **LangChain + HuggingFace** 기반 마니또 미션 자동 생성
-- **그룹별 좋아요 피드가 많은** 컨텐츠 내용 반영하여 미션 생성
+- **LangGraph 기반 파이프라인 구성**으로 유연하고 재사용 가능한 모듈화 구현
+- **그룹별 좋아요 피드가 많은** 콘텐츠 내용 반영하여 미션 생성
 - **그룹별 설명 텍스트를 LLM 프롬프트에 반영**하여 미션 생성
 - **SBERT 임베딩** + **ChromaDB RAG 검색** 기반 유사 예시 제공
 - **미션 필터링**, **중복 제거**, **이모지 부착**, **난이도 분류** 등 다양한 후처리 포함
+- **EXAONE 평가 LLM 기반 미션 평가** (일관성, 적절성, 창의성, 수행가능성 기준)
 - **GPU 기반 최적화**된 파이프라인
 
 ---
@@ -38,17 +42,20 @@ LLM 텍스트 생성 (LangChain + HuggingFace)
 
 ```bash
 git clone https://github.com/100-hours-a-week/12-marong-AI-mission.git
-# 초기 설정
+cd 12-marong-AI-mission
+
+# 의존성 설치
 pip install -r requirements.txt
 
+# 모델 다운로드
 python clova_down.py
 python scripts/sbert_down.py
+
+# ChromaDB 서버 설치
 pip install "chromadb[server]"
-# 필요시 설치
-pip install langchain_huggingface
-pip install pymysql
-ps aux | grep chroma
-kill 포트번호
+
+# 필요시 수동 설치
+pip install langchain_huggingface pymysql
 ```
 
 ---
@@ -56,7 +63,10 @@ kill 포트번호
 ## 사용 예시(방법)
 
 ```bash
+# 1. ChromaDB 서버 실행
 python scripts/run_chroma.py
+
+# 2. 메인 실행 (기본 그룹 ID는 1)
 python main.py
 ```
 
@@ -67,10 +77,10 @@ python main.py
 ```
 12-marong-AI-mission/
 ├── main.py                      # 메인 실행 파일
-├── main_tool.py                 # Backend DB 기반 미션 생성 정보 조회 도구
 │
 ├── core/
-│   └── clova_inference.py       # 미션 생성 핵심 파이프라인
+│   ├── llm_tools.py             # 미션 생성 핵심 파이프라인
+│   └── data_tools.py            # Backend DB 기반 미션 생성 정보 조회 도구
 │
 ├── db/
 │   ├── db.py                    # Backend DB 연결
@@ -87,7 +97,6 @@ python main.py
 │   └── sbert_down.py            # SBERT 모델 다운로드 스크립트
 │
 └── README.md
-
 ```
 
 ---
@@ -96,9 +105,9 @@ python main.py
 
 | 파일 경로                            | 모듈명/구성                       | 역할 설명                                   |
 | ------------------------------------ | --------------------------------- | ------------------------------------------- |
-| `core/clova_inference.py`            | `ClovaInference`                  | 미션 생성 전체 파이프라인 관리              |
+| `core/llm_tools.py`                  | `ClovaInference`                  | 미션 생성 전체 파이프라인 관리              |
 | `postprocess/clean_mission.py`       | `CleanMission`                    | 부적절하거나 비자연스러운 미션 필터링       |
-| `postprocess/emoji_gen.py`           | `EmojiGen`                        | 미션 문장에 랜덤 이모지 부착                |
+| `postprocess/emoji_gen.py`           | `EmojiGen`                        | 미션 문장에 난이도 기반 이모지 부착         |
 | `postprocess/difficulty_classify.py` | `DiffiClassify`                   | SBERT 기반 난이도 분류기                    |
 | _(내부 모듈)_                        | `DBSCAN`                          | SBERT 임베딩 유사도 기반 중복 미션 제거     |
 | _(통합 구성)_                        | `LangChain + HuggingFacePipeline` | 자연어 기반 미션 생성 엔진 (LLM 파이프라인) |
@@ -109,9 +118,9 @@ python main.py
 
 - 각 미션은 반드시 `~기`로 끝나는 한 문장
 - **구체적 정보 금지** (예: 이름, 색상, 노래 제목 등)
-- **IT 관련 키워드**는 반드시 포함 (깃허브, 프로그래밍 등)
+- **IT 관련 키워드**는 반드시 포함 (예: 깃허브, 코딩, 디스코드 등)
 - 마니띠의 **집/방 관련 행위 금지**
-- 비밀스럽고 마니또다운 행동 유도 (쪽지, 피드, 몰래 도움 등)
+- **비밀스럽고 마니또다운** 행동 유도 (쪽지, 피드 반응, 몰래 도움 등)
 
 ---
 
@@ -126,12 +135,3 @@ python main.py
   ]
 }
 ```
-
----
-
-## 향후 확장 방향
-
-- 미션 피드백 기반 난이도/테마 자동 조정
-- 미션 성공 여부 데이터와 사용자 성향 분석 연동
-
----
