@@ -251,7 +251,14 @@ def postprocess_node(state):
   deduped = []
   for m in cleaned:
       m_emb = sbert_model.encode(m, convert_to_numpy=True)
-      existing = [m for sublist in final_output.values() for m in sublist]
+
+      existing = [
+          mission[0]
+          for mission_list in final_output.values()
+          for mission in mission_list
+          if isinstance(mission, list) and len(mission) > 1 and isinstance(mission[1], str)
+      ]
+
       if existing:
           existing_embs = sbert_model.encode(existing, convert_to_numpy=True)
           sims = cosine_similarity([m_emb], existing_embs)[0]

@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoTokenizer
 from langgraph.graph import StateGraph, END
 from postprocess.clean_mission import CleanMission
 from postprocess.emoji_gen import EmojiGen
@@ -27,6 +27,7 @@ from core.llm_tools import (
 from postprocess.config import RANDOM_QUERIES
 import os
 import torch
+import pandas as pd
 
 # 초기 환경 설정
 base_date = datetime(2025, 1, 6)
@@ -108,7 +109,7 @@ for g_id, g_desc in group_info.items():
             "current_diff": "상",
             "mid_output": [],
             "final_output": {"상": [], "중": [], "하": []},
-            "target_counts": {"상": 0, "중": 3, "하": 0},
+            "target_counts": {"상": 3, "중": 6, "하": 12},
             "clean_tool": CleanMission(),
             "emoji_generator": EmojiGen(),
             "sbert_model": sbert_model,
@@ -119,11 +120,13 @@ for g_id, g_desc in group_info.items():
             "user_query": None,
             "random_queries": RANDOM_QUERIES,
             "gen_llm_chain": gen_llm_chain,
-            "eval_llm_chain": eval_llm_chain
+            "eval_llm_chain": eval_llm_chain,
+            "result_df": {"미션 내용": [], "쿼리": [], "난이도": [], "일관성": [], "적절성": [], "창의성": [], "수행가능성": [], "총합": [], "이유": []}
         }
 
         result = mission_graph.invoke(initial_state, config={"recursion_limit": 200})
         final_output = result["final_output"]
+        eval_df = pd.DataFrame(result["result_df"])
 
         missions_to_add = []
         group_missions_to_add = []
@@ -152,6 +155,7 @@ for g_id, g_desc in group_info.items():
         db.add_all(group_missions_to_add)
         db.commit()
         print(f"[성공] {g_id}, {g_desc} 그룹 미션 커밋 완료")
+        eval_df.to_csv(f"eval_results_{g_id}_{datetime.now()}.csv", index=False, encoding='utf-8-sig')
     except Exception as e:
         db.rollback()
         print(f"[오류] 그룹 ID {g_id} 미션 생성 중 오류 발생: {e}")
