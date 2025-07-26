@@ -36,6 +36,8 @@ class CleanMission:
         return False
     if re.search(r"마니띠\s*\S+\s*만들어주기", mission):
         return False
+    if re.search(r"마니띠\s*읽은 책을\s*추천해주기", mission):
+        return False
     if re.search(r"마니띠\s*본", mission):
         return False
     if re.search(r"별점\s*(주기|남기기)", mission):
